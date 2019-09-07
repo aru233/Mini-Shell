@@ -4,21 +4,28 @@
 #include <string.h>
 #include <sys/wait.h> //waitpid()
 #include <unistd.h> //fork(), exec(), pid_t, chdir()
+#include <sys/stat.h>
+#include <fcntl.h>
+
 
 using namespace std;
 
 #define BUFF_SIZE 1024
 
 void parse_input(char* , char **);
-void execute_cmd(char **);
+void execute_cmd(char **, int);
 int sizeofinp(char **);
-void handle_redir(char **);
+int handle_redir(int, int, int ,char **, int);
+void handle_cd(int , char**);
+int findPosOfAmp(char** , char , int);
+int findPosOf(char** , string);
 
 int main(){
-	
+	int background;
 
 	while(1){
 		cout<<"$";
+		background=0;
 		//char input_cmd[BUFF_SIZE][BUFF_SIZE];
 		char* input_cmd[2048];
 		string str;
@@ -32,37 +39,58 @@ int main(){
 		str.copy(arr,str.length());
 		arr[str.length()]='\0';
 		parse_input(arr,input_cmd);
-
 		
 		int len = sizeofinp(input_cmd);
-		// cout<<"len "<<len<<endl;
+		cout<<"len "<<len<<endl;
+
+		// if(len == 1 && strcmp(input_cmd[0], "&")){
+		// 	perror("bash: syntax error near unexpected token `&'");
+		// 	continue;
+		// }
+
+		if(!strcmp(input_cmd[len-1],"&")){// for ls &
+			input_cmd[len-1]=NULL;
+			len--;
+			background=1;
+			cout<<" in & ___background "<<background<<endl;
+			sizeofinp(input_cmd);
+		}
+
+		background = findPosOfAmp(input_cmd, '&', len);
+		cout<<" else, background "<<background<<endl;
 		
-		if(strcmp(input_cmd[0],"exit")==0){
+		if(strcmp(input_cmd[0],"exit\n")==0){
 			exit(0);
 		}
 
-		if(strcmp(input_cmd[0],"cd")==0){				
-			if(len==1 || string(input_cmd[1]).empty()){
-				errno=ENOENT;
-				perror("Enter a valid filename:");
-				continue;
+		if(strcmp(input_cmd[0],"cd")==0){
+			handle_cd(len, input_cmd);
+			continue; //no need to execute execvp() for cd;	
+		}
+
+		int pos=findPosOf(input_cmd, ">");
+		// cout<<"pos1 "<<pos<<endl;
+		if(pos!=-1){//a redirection case
+			if(!handle_redir(len, pos, 1, input_cmd, background)){//1: ">"
+				continue;//invalid filename prob, so we continue;
 			}
-			string filename = input_cmd[1];
-			chdir(filename.c_str());
-			continue;
+			continue; // No need to execute execute_cmd() as it's already handled by handle_redir()
 		}
 
-		if(len >= 3){
-
+		pos=findPosOf(input_cmd, ">>");
+		// cout<<"pos2 "<<pos<<endl;
+		if(pos!=-1){//a redirection case
+			if(!handle_redir(len, pos, 2, input_cmd, background)){//2: ">>"
+				continue;//invalid filename prob, so we continue;
+			}
+			continue; // No need to execute execute_cmd() as it's already handled by handle_redir()
 		}
 		
-		
- 
   
 		// cout<<"1st---"<<input_cmd[0]<<endl;
 		// cout<<"2nd--"<<input_cmd[1]<<endl;
 
-		execute_cmd(input_cmd);
+		execute_cmd(input_cmd, background);
 
 		cout<<"back in main"<<endl;
 		
@@ -70,8 +98,95 @@ int main(){
 	}//end of outermost while()
 }
 
-void handle_redir(char** input_cmd){
+int findPosOf(char** input_cmd, string str){
+	int i=0;
+	while(input_cmd[i]){
+		if(strcmp(input_cmd[i], str.c_str())==0){
+			return i;
+		}
+		i++;
+	}
+	return -1;
+}
 
+
+/*This function will
+1- check if & present at the end of command
+2- If present, removes it from the command by setting that pos NULL
+3- and returns 1 to set the flag "background"
+*/
+int findPosOfAmp(char** input_cmd, char sym, int len){
+	string str=input_cmd[len-1];
+	int len1=str.length();
+	if(str[len1-1] == sym){
+		input_cmd[len-1][len1-1]='\0';
+		return 1;
+	}	
+	return 0;
+}
+
+
+void handle_cd(int len, char** input_cmd){
+	if(len==1 || string(input_cmd[1]).empty()){
+		errno=ENOENT;
+		perror("Enter a valid filename:");
+		return;
+		// continue;
+	}
+	string filename = input_cmd[1];
+	chdir(filename.c_str());
+	// continue;
+}
+
+int handle_redir(int len, int pos, int flag, char** input_cmd, int background){
+	if(string(input_cmd[pos+1]).empty()){
+		errno=ENOENT;
+		perror("Enter a valid filename:");
+		return 0;
+	}
+	pid_t pid, wpid;
+	int status, fd1;
+	pid=fork();
+
+	if(pid < 0){//error in forking
+		perror("Error in forking:");
+	}
+	else if(pid == 0){ //child
+		if(flag==1){
+
+			// cout<< "Here for >"<<endl;
+			if((fd1=open(input_cmd[pos+1], O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR|S_IWUSR)) == -1){
+				perror("Error in opening file");
+			}
+		}
+		else if(flag==2){
+
+			// cout<< "Here for >2 "<<endl;
+			if((fd1=open(input_cmd[pos+1], O_WRONLY | O_APPEND | O_CREAT, S_IRUSR|S_IWUSR)) == -1){
+				perror("Error in opening file");
+			}
+		}
+		
+		dup2(fd1, STDOUT_FILENO);
+		input_cmd[pos]=NULL;
+		if(execvp(input_cmd[0], input_cmd) ==-1){
+			// cout<<"execvp err"<<endl;
+			perror("exec failed for child process:");
+		//A successful call to execvp does not have a return value .
+		//However, a -1 is returned if the call to execvp is unsuccessful.
+		
+			exit(EXIT_FAILURE); //EXIT_FAILURE: unsuccessful execution of a program
+		//the child process exits so that the shell can continue running
+		}
+	}
+
+	else{ //parent 
+		// cout<<"In parent "<<endl;
+		do {
+			wpid = waitpid(pid, &status, WUNTRACED);
+		} while (!WIFEXITED(status) && !WIFSIGNALED(status));
+	}
+	return 1;
 }
 
 void parse_input(char* arr, char** input_cmd){
@@ -79,16 +194,16 @@ void parse_input(char* arr, char** input_cmd){
 	{
 		while(*arr==' ' || *arr == '\t' || *arr == '\n')
 		{
+			*arr++='\0';
 			while(*arr==' ' || *arr == '\t'){
 				arr++;
 			}
-			*(arr-1)='\0';
-			arr++;
 			
 		}
-		
-		*(input_cmd++) = arr;
-		
+		if(*arr != '\0'){
+			*input_cmd++=arr;
+		}
+			
 		
 		while(*arr != ' ' && *arr != '\t' && *arr != '\n' && *arr != '\0')
 		{
@@ -154,13 +269,14 @@ void parse_input(char* arr, char** input_cmd){
 int sizeofinp(char **input_cmd){
 	int i=0;
 	while(input_cmd[i]){
+		cout<<"i "<<i<<"  "<<input_cmd[i]<<endl;
 		i++;
 	}
 	return i;
 }
 
-void execute_cmd(char **input_cmd){
-	cout<<"in exec cmd...HI!!!"<<endl;
+void execute_cmd(char **input_cmd, int background){
+	// cout<<"in exec cmd...HI!!!"<<endl;
 
 	// cout<<input_cmd[0]<<endl;
 	// cout<<input_cmd[1]<<endl;
@@ -171,18 +287,18 @@ void execute_cmd(char **input_cmd){
 	/* execute logic */
 	pid=fork();
 
-	cout<<"pid "<<pid<<endl;
+	// cout<<"pid "<<pid<<endl;
 
 	if(pid < 0){//error in forking
 		perror("Error in forking:");
 	}
 
 	else if(pid == 0){ //child
-		cout<<"In child "<<endl;
+		// cout<<"In child "<<endl;
 		// char **argv;
 		// argv=input_cmd;
 		if(execvp(*input_cmd, input_cmd) ==-1){
-			cout<<"execvp err"<<endl;
+			// cout<<"execvp err"<<endl;
 			perror("exec failed for child process:");
 		//A successful call to execvp does not have a return value .
 		//However, a -1 is returned if the call to execvp is unsuccessful.
@@ -193,7 +309,7 @@ void execute_cmd(char **input_cmd){
 	}
 
 	else{ //parent 
-		cout<<"In parent "<<endl;
+		// cout<<"In parent "<<endl;
 		do {
 			wpid = waitpid(pid, &status, WUNTRACED);
 		} while (!WIFEXITED(status) && !WIFSIGNALED(status));
