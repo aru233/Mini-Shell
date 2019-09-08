@@ -16,6 +16,7 @@ using namespace std;
 
 void setup_myrc();
 void init_env_var();
+string get();
 void parse_input(char* , char **);
 void execute_cmd(char **, int);
 int sizeofinp(char **);
@@ -84,6 +85,7 @@ int main(){
 
 
 		if(strcmp(input_cmd[0], "alias")==0){
+			cout<<"main: in alias if"<<endl;
 			string ali;
 			ali=str.substr(6);
 			cout<<"ali "<<ali<<endl;
@@ -116,10 +118,10 @@ int main(){
 			// cout<<"yo"<<endl;
 			len=sizeofinp(input_cmd);
 		}
-		if(aliasflag==0){
-			parse_input(arr, input_cmd);
-			len=sizeofinp(input_cmd);
-		}
+		// if(aliasflag==0){
+		// 	parse_input(arr, input_cmd);
+		// 	len=sizeofinp(input_cmd);
+		// }
 
 		// cout<<"len after "<<len<<endl;
 		// cout<<input_cmd[0]<<endl;
@@ -140,25 +142,21 @@ int main(){
 		
 
 		if(strcmp(input_cmd[0],"cd")==0){
+			// sizeofinp(input_cmd);
 			handle_cd(len, input_cmd);
 			continue; //no need to execute execvp() for cd;	
 		}
 
 		/* pipes */
-		// pos=findPosOf1(str, '|');
-		// if(pos!=-1){
-		// 	cout<<"FOund pipe .. in main"<<endl;
-		// 	handle_pipes(len, str);
-		// 	continue;
-		// }
+		pos=findPosOf1(str, '|');
+		if(pos!=-1){
+			cout<<"FOund pipe .. in main"<<endl;
+			handle_pipes(len, str);
+
+			cout<<"back in main after handle pipes"<<endl;
+			continue;
+		}
 		/*---pipes--- */
-
-
-		// if(strcmp(input_cmd[0],"echo")==0){
-		// 	handle_echo(input_cmd);
-		// 	continue; //no need to execute execvp() for echo;	
-		// }
-
 
 		/* Redirection */
 		pos=findPosOf(input_cmd, ">");
@@ -187,10 +185,6 @@ int main(){
 		}
 		/* ..echo end.. */
 
-
-		// cout<<"1st---"<<input_cmd[0]<<endl;
-		// cout<<"2nd--"<<input_cmd[1]<<endl;
-
 		execute_cmd(input_cmd, background);
 
 		cout<<"back in main"<<endl;
@@ -199,8 +193,45 @@ int main(){
 	}//end of outermost while()
 }
 
+string getPATH(){
+	string p="/etc/manpath.config";
+	char *mpath;
+	char buf[2048];
+	int n=1;
+	FILE *mf = fopen("/etc/manpath.config","r");
+	if(mf!=NULL){
+		cout<<"mf not null "<<endl;
+		while(fgets(buf, 2048, mf)!=NULL){
+			// fputs(s,fp1);
+			// cout<<buf<<endl;
+			//  cout<<s<<endl;
+			char *path[1024];
+			path[0] = strtok(buf, " ");
+			cout<<"ghngvbcfcdx"<<(string(path[0])=="MANPATH_MAP")<<endl;
+			// cout<<"path[0] "<<path[0]<<endl;
+			if(strcmp(path[0], "MANPATH_MAP") == 0){
+				cout<<"eq"<<endl;
+				path[1] = strtok(NULL," ");
+				cout<<"path[1] "<<path[1]<<endl;
+				// while((path[n] = strtok(NULL," "))!= NULL){
+				// 	n++;
+				// }
+			  strcat(mpath, path[1]);
+			  strcat(mpath,":");
+			}	
+		}
+	}
+	
+	fclose(mf);
+
+	return string(mpath);
+	
+}
+
 void setup_myrc(){
+
 	init_env_var();
+
 	FILE* fle=fopen("myrc.txt","w");
 	if(fle!=NULL){
 		// cout<<"gtrearr"<<endl;
@@ -210,8 +241,7 @@ void setup_myrc(){
 		fprintf(fle, "USER=%s\n", mp_env["USER"].c_str());
 		fprintf(fle, "HOSTNAME=%s\n", mp_env["HOSTNAME"].c_str());
 		fprintf(fle, "PS1=%s\n", mp_env["PS1"].c_str());
-
-
+		fprintf(fle, "PATH=%s\n", mp_env["PATH"].c_str());
 		fclose(fle);
 	}
 	else{
@@ -221,10 +251,13 @@ void setup_myrc(){
 }
 
 void init_env_var(){
+	cout<<"here in init_env_var"<<endl;
+
 	struct passwd *pwd=getpwuid(getuid());
 	char *HOME = pwd->pw_dir;
 	char *USER = pwd->pw_name;
 	char HOSTNAME[1028];
+	string PATH;
 	string PS1;
 	gethostname(HOSTNAME, 1028);
 	if(geteuid()==0){
@@ -236,17 +269,22 @@ void init_env_var(){
 	}
 	// cout<<"kiu1"<<getuid()<<endl;
 
-		// cout<<HOME<<endl;
+	// 	cout<<HOME<<endl;
 	// cout<<USER<<endl;
 	// cout<<HOSTNAME<<endl;
 	// cout<<PS1<<endl;
 	// cout<<mp_env["HOME"]<<endl;
-	
-	mp_env["HOME"]=string(HOME);
+
+	// PATH=getPATH();
+	// cout<<"PAth "<< PATH<<endl;
+
 	// mp_env["PATH"]=PATH;
+	mp_env["HOME"]=string(HOME);
+	mp_env["PATH"]=PATH;
 	mp_env["USER"]=string(USER);
 	mp_env["HOSTNAME"]=string(HOSTNAME);
 	mp_env["PS1"]=PS1;
+
 }
 
 void setInMap(string k, string v){
@@ -323,182 +361,134 @@ void count_pipes(string str, char** pipcmd, int* pipcomcount){
 	*pipcomcount=1;
 	pipcmd[0]=strtok((char*)str.c_str(), "|");
 
-	// cout << "pipcmd[0]:_"<<pipcmd[0]<<"_"<<endl;
+	cout << "pipcmd[0]: "<<pipcmd[0]<<endl;
 	while((pipcmd[*pipcomcount] = strtok(NULL, "|")) != NULL){
-		// cout<<"pipcomcount "<<*pipcomcount<<", pipcmd[*pipcomcount] "<<pipcmd[*pipcomcount]<<endl;
+		cout<<"pipcomcount "<<*pipcomcount<<", pipcmd[*pipcomcount] "<<pipcmd[*pipcomcount]<<endl;
 		(*pipcomcount)++;
 		// cout<<"pipcomcount "<<*pipcomcount<<endl;
+		// cout<<"pipcomcount "<<*pipcomcount<<", pipcmd[*pipcomcount] "<<pipcmd[*pipcomcount]<<endl;
 	}
 	pipcmd[*pipcomcount]=NULL;
 }
 
 void handle_pipes(int leng, string str){
-	cout<<"gh "<<str<<endl;
 	int fd[2];
 	int fdpos;
 	int pt;
 	pid_t pid;
-	char* pipcmd[1000];
-	// string pipcmd[100];
-	int pipcomcount, redir_flag=0;
-	count_pipes(str, pipcmd, &pipcomcount);
+	char* pipcmd[1024];
+	int pipcomcount=1, redir_flag=0;
+	// count_pipes(str, pipcmd, &pipcomcount);
+
+	pipcmd[0]=strtok((char*)str.c_str(), "|");
+
+	// cout << "pipcomcount 0 "<<"pipcmd[0]: "<<pipcmd[0]<<endl;
+	while((pipcmd[pipcomcount] = strtok(NULL, "|")) != NULL){
+		// cout<<"pipcomcount "<<pipcomcount<<", pipcmd[pipcomcount] "<<pipcmd[pipcomcount]<<endl;
+		pipcomcount++;
+		// cout<<"pipcomcount "<<*pipcomcount<<endl;
+		// cout<<"pipcomcount "<<*pipcomcount<<", pipcmd[*pipcomcount] "<<pipcmd[*pipcomcount]<<endl;
+	}
+	pipcmd[pipcomcount]=NULL;
+
+
 	// cout<<"size of pipcmd "<<sizeofinp(pipcmd)<<endl;
 
-	cout << "pipcomcount .. in handle_pipes " << pipcomcount<<endl;
-	cout<<"pipcmd[0] "<< pipcmd[0]<<endl;
-	cout<<"pipcmd[1] "<< pipcmd[1]<<endl;
-	pt=0;
+	// cout << "pipcomcount .. in handle_pipes " << pipcomcount<<endl;
+	// cout<<"pipcmd[0] "<< pipcmd[0]<<endl;
+	// cout<<"pipcmd[1] "<< pipcmd[1]<<endl;
+	pt=-1;
 	fdpos=0;
 
-	while(pt<pipcomcount){
-
-		cout<<pt<<endl;
-		char *arr[1000];
-		char ar[1000];
-		string coms;
-		int itr;
-		for(int i=0;i<pipcomcount;i++){
-			cout <<"val = "<<pipcmd[i] <<endl;
-			for(int j=0; j<strlen(pipcmd[i]) ;j++){
-				if(pipcmd[i][j] == ' '){
-					cout<<"space"<<endl;
-				}
-			}
-		}
-		coms=pipcmd[pt];
-		cout<<"coms = "<<coms<<endl;
-		cout<<"pipmd[0] = "<<pipcmd[0]<<endl;
-		cout<<"pipmd[1] = "<<pipcmd[1]<<endl;
-		 itr=1;
-
-		// arr[0]=strtok((char*)coms.c_str(), " ");
-
-		// // cout << "pipcmd[0]:_"<<pipcmd[0]<<"_"<<endl;
-		// while((arr[itr] = strtok(NULL, " ")) != NULL){
-		// 	// cout<<"pipcomcount "<<*pipcomcount<<", pipcmd[*pipcomcount] "<<pipcmd[*pipcomcount]<<endl;
-		// 	itr++;
-		// 	// cout<<"pipcomcount "<<*pipcomcount<<endl;
-		// }
-		// arr[itr]=NULL;
-		// cout<<"itr "<<itr<<endl;
-		// cout<<"arr[0] "<< arr[0]<<endl;
-		// cout<<"arr[1] "<< arr[1]<<endl;
-		// // cout<<"arr[2] "<< arr[2]<<endl;
-
-		// cout<<"pipcmd[0] "<< pipcmd[0]<<endl;
-		// cout<<"pipcmd[1] "<< pipcmd[1]<<endl;
-
-		// char ar1[100];
-		// string are
-		// cout<<"pipcmd[0] "<< pipcmd[0]<<endl;
-		// string cmdstr;
-		// cmdstr=string(pipcmd[pt]);
-		// cout<<"hh: "<<cmdstr<<endl;
-		// strcpy(ar,pipcmd[0]);
-		// strcpy(ar, ar1);
-		// cout<<"pt "<<pt<<endl;
-	
-	// 	// cout<<"pt "<<pt<<" pipcmd[pt] "<<pipcmd[pt]<<endl;
-	// 	parse_input(ar, arr);
-	// 	cout<<"pipcmd[0] "<< pipcmd[0]<<endl;
-	// cout<<"pipcmd[1] "<< pipcmd[1]<<endl;
-	// 	cout<<"free "<<arr[0]<< " " <<arr[1]<<endl;
-		pt++;
-	}
-		// uncomment from here
-		// pipe(fd);
-		// pid=fork();
+	while(pt++<pipcomcount){
+		pipe(fd);
+		pid=fork();
 		
-		// if(pid==-1){
-		// 	perror("Error in forking:");
-		// }
-		// else if(pid==0){//child
-		// 	dup2(fdpos, STDIN_FILENO);
-		// 	//for the 1st function, this won't change anything as 0,0 but for further calls, the input will be taken from fdpos 
-		// 	// //which was written to by prev command
-		// 	// if(pt<pipcomcount-1){//for last command, o/p to be written to terminal only
-		// 	// 	dup2(fd[0], STDOUT_FILENO);
+		if(pid==-1){
+			perror("Error in forking:");
+		}
+		else if(pid==0){//child
+			dup2(fdpos, STDIN_FILENO);
+			//for the 1st function, this won't change anything as 0,0 but for further calls, the input will be taken from fdpos 
+			// //which was written to by prev command
+			// cout<<pt<<endl;
+			char *ark[100];
+			char coms[100];
+			strcpy(coms, pipcmd[pt]);
+			// cout<<"b4: pt "<<pt<<" pipcmd[pt] "<<pipcmd[pt]<<endl;
+			string parsedCopy[100];
+			for(int i=0; pipcmd[i]!=NULL; i++)
+			{
+				string cp=string(pipcmd[i]);
+				parsedCopy[i]=cp;
+			}
+			parse_input(coms, ark);
+			// cout<<"pipcmd[0] "<< parsedCopy[0]<<endl;
+			// cout<<"pipcmd[1] "<< parsedCopy[1]<<endl;
+			cout<<"arr[0] "<< ark[0]<<endl;
+			cout<<"arr[1] "<< ark[1]<<endl;
 
-		// 	// }
-		// 	close(fd[0]);
-		// 	// cout<<"pt "<<pt<<" pipcmd[pt] "<<pipcmd[pt]<<endl;
-
-		// 	// if(pt==pipcomcount-1){//checking redirection in last cmd
-		// 	// 	/* Redirection */
-		// 	// 	int pos, background=0;
-		// 	// 	int len = sizeofinp(pipcmd);;
-		// 	// 	pos=findPosOf(pipcmd, ">");
-		// 	// 	// cout<<"pos1 "<<pos<<endl;
-		// 	// 	if(pos!=-1){//a redirection case
-		// 	// 		cout<<"redir mai ghusa 1"<<endl;
-		// 	// 		handle_redir(len, pos, 1, pipcmd, background);//1: ">"
-		// 	// 		// if(!handle_redir(len, pos, 1, pipcmd, background)){//1: ">"
-		// 	// 		// 	continue;//invalid filename prob, so we continue;
-		// 	// 		// }
-		// 	// 		// continue; // No need to execute execute_cmd() as it's already handled by handle_redir()
-		// 	// 		redir_flag=1;
-		// 	// 	}
-
-		// 	// 	pos=findPosOf(pipcmd, ">>");
-		// 	// 	// cout<<"pos2 "<<pos<<endl;
-		// 	// 	if(pos!=-1){//a redirection case
-		// 	// 		cout<<"redir mai ghusa 2"<<endl;
-		// 	// 		handle_redir(len, pos, 2, pipcmd, background);//2: ">>"
-		// 	// 		// if(!handle_redir(len, pos, 2, input_cmd, background)){//2: ">>"
-		// 	// 		// 	continue;//invalid filename prob, so we continue;
-		// 	// 		// }
-		// 	// 		// continue; // No need to execute execute_cmd() as it's already handled by handle_redir()
-		// 	// 		redir_flag=1;
-		// 	// 	}
-		// 	// 	/* ...Redirection End...*/
-
-		// 	// 	// if(redir_flag==0){//not a redir for last cmd
-
-		// 	// 	// }
-
-		// 	// }
-		// 	cout<<"pt "<<pt<<" pipcmd[pt] "<<pipcmd[pt]<<endl;
-
-		// 	parse_input(pipcmd[pt], arr);
-		// 	cout<<"free "<<arr[0]<< " " <<arr[1]<<endl;
-		// 	if(pt<pipcomcount-1){//for last command, o/p to be written to terminal only
-		// 		dup2(fd[1], STDOUT_FILENO);
-
-		// 	}
-		// 	close(fd[0]);
-		// 		cout<<"in handle_pipes() not redir case: "<<arr[0]<<endl;
-		// 		if(execvp(arr[0], arr) ==-1){
-		// 			perror("exec failed for child process:");
-		// 			//A successful call to execvp does not have a return value .
-		// 			//However, a -1 is returned if the call to execvp is unsuccessful.
-				
-		// 			exit(EXIT_FAILURE); //EXIT_FAILURE: unsuccessful execution of a program
-		// 			//the child process exits so that the shell can continue running
-				
-		// 		}
-		// 	// if(pt!=pipcomcount-1 || redir_flag==0){
-		// 	// 	parse_input(pipcmd[pt], arr);
-		// 	// 	cout<<"in handle_pipes() not redir case: "<<arr[0]<<endl;
-		// 	// 	if(execvp(arr[0], arr) ==-1){
-		// 	// 		perror("exec failed for child process:");
-		// 	// 		//A successful call to execvp does not have a return value .
-		// 	// 		//However, a -1 is returned if the call to execvp is unsuccessful.
-				
-		// 	// 		exit(EXIT_FAILURE); //EXIT_FAILURE: unsuccessful execution of a program
-		// 	// 		//the child process exits so that the shell can continue running
-				
-		// 	// 	}
-		// 	// }
+			if(pt<pipcomcount-1){//for last command, o/p to be written to terminal only
+				dup2(fd[1], STDOUT_FILENO);
+			}
+			close(fd[0]);
+			// cout<<"in handle_pipes() not redir case: "<<arr[0]<<endl;if(pt==pipcomcount-1){//checking redirection in last cmd
 			
-		// }
-		// else{//parent
-		// 	waitpid(-1, NULL, 0);
-		// 	close(fd[1]);// after writing to the write end of the pipe, we close it
-		// 	//and will read from the read end of the pipe
-		// 	fdpos=fd[0];//taking input from read input for the next command in pipeline
-		// 	pt++;
-		// }
-	// }
+			if(pt==pipcomcount-1){//checking redirection in last cmd
+				cout<<"pipcom-1 mai pt:"<<pt<<endl;
+				/* Redirection */
+				int pos, background=0;
+				int len = sizeofinp(ark);;
+				pos=findPosOf(ark, ">");
+				cout<<"pos of > in.. "<<pos<<endl;
+				// cout<<"pos1 "<<pos<<endl;
+				if(pos!=-1){//a redirection case
+					cout<<"redir mai ghusa 1"<<endl;
+					handle_redir(len, pos, 1, ark, background);//1: ">"
+					// if(!handle_redir(len, pos, 1, pipcmd, background)){//1: ">"
+					// 	continue;//invalid filename prob, so we continue;
+					// }
+					// continue; // No need to execute execute_cmd() as it's already handled by handle_redir()
+					cout<< "came back after handling redir"<<endl;
+					redir_flag=1;
+				}
+
+				pos=findPosOf(ark, ">>");
+				// cout<<"pos2 "<<pos<<endl;
+				if(pos!=-1){//a redirection case
+					cout<<"redir mai ghusa 2"<<endl;
+					handle_redir(len, pos, 2, ark, background);//2: ">>"
+					// if(!handle_redir(len, pos, 2, input_cmd, background)){//2: ">>"
+					// 	continue;//invalid filename prob, so we continue;
+					// }
+					// continue; // No need to execute execute_cmd() as it's already handled by handle_redir()
+					redir_flag=1;
+				}
+				/* ...Redirection End...*/
+			}
+			else if(pt!=pipcomcount-1 || redir_flag==0){
+				if(execvp(ark[0], ark) ==-1){
+					perror("exec failed for child process:");
+					//A successful call to execvp does not have a return value .
+					//However, a -1 is returned if the call to execvp is unsuccessful.
+				
+					exit(EXIT_FAILURE); //EXIT_FAILURE: unsuccessful execution of a program
+					//the child process exits so that the shell can continue running
+			
+				}	
+			}						
+			
+		}
+		else{//parent
+			cout<<"in handle_pipe parent"<<endl;
+			// pt++;
+			waitpid(-1, NULL, 0);
+			close(fd[1]);// after writing to the write end of the pipe, we close it
+			//and will read from the read end of the pipe
+			fdpos=fd[0];//taking input from read input for the next command in pipeline
+			
+		}
+	}
 }
 
 void handle_echo(string str){
@@ -565,6 +555,7 @@ void handle_echo(string str){
 
 void handle_cd(int len, char** input_cmd){
 	cout<<"here in cd"<<endl;
+	sizeofinp(input_cmd);
 	// if(len==1 || string(input_cmd[1]).empty()){
 	// 	errno=ENOENT;
 	// 	perror("Enter a valid filename:");
@@ -581,7 +572,9 @@ void handle_cd(int len, char** input_cmd){
 	// char home[1024]="/home/arushi";
 	int x;
 
+
 	if(len==1 || string(input_cmd[1]).empty() ){// writing just cdcd takes us to home dir
+		cout<<"cd: mai idhar hi gus gaya "<<endl;
 		sprintf(currDir, "%s", home);
 
 		// getcwd(currDir, 2048);
@@ -593,8 +586,9 @@ void handle_cd(int len, char** input_cmd){
 	}
 
 	filename = input_cmd[1];
+	cout<<"cd: filename "<<filename<<endl;
 	
-	cout<<"len in cd "<<endl;
+	// cout<<"len in cd "<<endl;
 	
 	
 	// str path;
@@ -632,14 +626,14 @@ int handle_redir(int len, int pos, int flag, char** input_cmd, int background){
 	else if(pid == 0){ //child
 		if(flag==1){
 
-			// cout<< "Here for >"<<endl;
+			cout<< "Here for >"<<endl;
 			if((fd1=open(input_cmd[pos+1], O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR|S_IWUSR)) == -1){
 				perror("Error in opening file");
 			}
 		}
 		if(flag==2){
 
-			// cout<< "Here for >2 "<<endl;
+			cout<< "Here for >2 "<<endl;
 			if((fd1=open(input_cmd[pos+1], O_WRONLY | O_APPEND | O_CREAT, S_IRUSR|S_IWUSR)) == -1){
 				perror("Error in opening file");
 			}
@@ -688,7 +682,7 @@ void parse_input(char* arr, char** input_cmd){
 	{
 		while(*arr==' ' || *arr == '\t' || *arr == '\n')
 		{
-			*(arr++)='\0';
+			*arr++='\0';
 			while(*arr==' ' || *arr == '\t'){
 				arr++;
 			}
