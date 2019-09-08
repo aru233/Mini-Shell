@@ -16,7 +16,7 @@ using namespace std;
 
 void setup_myrc();
 void init_env_var();
-string get();
+string getPATH();
 void parse_input(char* , char **);
 void execute_cmd(char **, int);
 int sizeofinp(char **);
@@ -193,41 +193,6 @@ int main(){
 	}//end of outermost while()
 }
 
-string getPATH(){
-	string p="/etc/manpath.config";
-	char *mpath;
-	char buf[2048];
-	int n=1;
-	FILE *mf = fopen("/etc/manpath.config","r");
-	if(mf!=NULL){
-		cout<<"mf not null "<<endl;
-		while(fgets(buf, 2048, mf)!=NULL){
-			// fputs(s,fp1);
-			// cout<<buf<<endl;
-			//  cout<<s<<endl;
-			char *path[1024];
-			path[0] = strtok(buf, " ");
-			cout<<"ghngvbcfcdx"<<(string(path[0])=="MANPATH_MAP")<<endl;
-			// cout<<"path[0] "<<path[0]<<endl;
-			if(strcmp(path[0], "MANPATH_MAP") == 0){
-				cout<<"eq"<<endl;
-				path[1] = strtok(NULL," ");
-				cout<<"path[1] "<<path[1]<<endl;
-				// while((path[n] = strtok(NULL," "))!= NULL){
-				// 	n++;
-				// }
-			  strcat(mpath, path[1]);
-			  strcat(mpath,":");
-			}	
-		}
-	}
-	
-	fclose(mf);
-
-	return string(mpath);
-	
-}
-
 void setup_myrc(){
 
 	init_env_var();
@@ -251,7 +216,7 @@ void setup_myrc(){
 }
 
 void init_env_var(){
-	cout<<"here in init_env_var"<<endl;
+	// cout<<"here in init_env_var"<<endl;
 
 	struct passwd *pwd=getpwuid(getuid());
 	char *HOME = pwd->pw_dir;
@@ -275,16 +240,42 @@ void init_env_var(){
 	// cout<<PS1<<endl;
 	// cout<<mp_env["HOME"]<<endl;
 
-	// PATH=getPATH();
+	PATH=getPATH();
 	// cout<<"PAth "<< PATH<<endl;
 
-	// mp_env["PATH"]=PATH;
+	mp_env["PATH"]=PATH;
 	mp_env["HOME"]=string(HOME);
 	mp_env["PATH"]=PATH;
 	mp_env["USER"]=string(USER);
 	mp_env["HOSTNAME"]=string(HOSTNAME);
 	mp_env["PS1"]=PS1;
 
+}
+
+string getPATH(){
+	// string p="/etc/manpath.config";
+	// char *mpath;
+	string mpath="";
+	char buf[2048];
+	int n=1;
+	FILE *mf = fopen("/etc/manpath.config","r");
+	if(mf!=NULL){
+		// cout<<"mf not null "<<endl;
+		while(fgets(buf, sizeof(buf), mf)!=NULL){
+			char *path[1024];
+			path[0] = strtok(buf, "\t ");
+			if(strcmp(path[0], "MANPATH_MAP") == 0){
+				path[1] = strtok(NULL,"\t ");
+				string s=path[1];
+				mpath+=s;
+				mpath+=":";
+			}	
+		}
+	}
+	
+	fclose(mf);
+
+	return mpath.substr(0, mpath.length()-1);	
 }
 
 void setInMap(string k, string v){
@@ -526,7 +517,7 @@ void handle_echo(string str){
 			cout<<getpid()<<endl;
 		}
 		else if(str1=="PATH"){
-			cout<<"no path dude"<<endl;
+			cout<<mp_env[str1]<<endl;
 			// cout<<mp_env[str1]<<endl;
 		}
 		else if(str1=="HOME"){
