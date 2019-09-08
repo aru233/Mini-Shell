@@ -260,66 +260,6 @@ void init_env_var(){
 
 }
 
-// //open filename.mp3
-// void handle_open(char *stre){
-// 	cout<<"received string in handle_open(): "<<stre<<endl;
-// 	char *ar[2];
-// 	int status;
-// 	char buf[2048];
-// 	// pid_t pid, wpid;
-// 	char *bin;
-// 	char loc[]="/home/arushi/IIITH/OS/OS_assignment1/temp/";
-
-// 	cout<<"loc: "<<loc<<endl;
-
-// 	strcat(loc,strdup(stre));//loc stores path of the file to be opened
-
-// 	cout<<"file loc: "<<loc<<endl;
-
-// 	ar[0]=strtok(stre,".");//has filename
-// 	ar[1]=strtok(NULL,".");//has extension
-	
-// 	cout<<"filename "<<ar[0]<<endl;
-// 	cout<<"ext "<<ar[1]<<endl;
-
-// 	FILE* fle=fopen("myrc.txt","a+");
-// 	if(fle!=NULL){
-// 		while(fgets(buf, sizeof(buf), fle)!=NULL){
-// 			char *readline[10];
-// 			readline[0]=strtok(buf, "="); //buf of type "mp3=/usr/bin/vlc"
-// 			if(strcmp(readline[0], ar[1]) == 0){
-// 				readline[1] = strtok(NULL,"=");//get binary path here
-// 				bin=readline[1];
-
-// 				cout<<"binary: "<<bin<<endl;
-
-// 				handle
-// 				/* execute logic */
-// 				// pid=fork();
-// 				// if(pid < 0){//error in forking
-// 				// 	perror("Error in forking:");
-// 				// }
-// 				// else if(pid == 0){ //child
-// 				// 	if(execl(bin, "xdg-open", loc, (char *)0) ==-1){
-// 				// 		// cout<<"execvp err"<<endl;
-// 				// 		perror("exec failed for child process:");
-					
-// 				// 		exit(EXIT_FAILURE); //EXIT_FAILURE: unsuccessful execution of a program
-// 				// 		//the child process exits so that the shell can continue running
-// 				// 	}
-					
-// 				// }
-
-// 				// else{
-// 				// 	do {
-// 				// 		wpid = waitpid(pid, &status, WUNTRACED);
-// 				// 	} while (!WIFEXITED(status) && !WIFSIGNALED(status));
-// 				// }
-// 			}
-// 		}
-// 	}
-// }
-
 string getPATH(){
 	// string p="/etc/manpath.config";
 	// char *mpath;
