@@ -1,4 +1,0 @@
-HOME=/home/arushi
-USER=arushi
-HOSTNAME=arushi-Inspiron-3542
-PS1=$
